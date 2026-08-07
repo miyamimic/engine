@@ -42,6 +42,8 @@ export function useEngine() {
     characterId: MOCK_CHARACTERS[0].character_id,
     characterName: MOCK_CHARACTERS[0].name,
     emotion: { ...MOCK_CHARACTERS[0].emotion.baseline } as EmotionVector,
+    previousEmotion: null as EmotionVector | null,
+    emotionConfirmed: true,
     backgroundThreads: [] as BackgroundThread[],
     triggeredAnchors: [] as TriggeredAnchor[],
     messages: [] as ChatMessage[],
@@ -96,6 +98,11 @@ export function useEngine() {
 
   const sendMessage = useCallback(async (userInput: string) => {
     const s = stateRef.current;
+    // 保存旧情绪（用于对比），标记为未确认
+    s.previousEmotion = { ...s.emotion };
+    s.emotionConfirmed = false;
+    rerender();
+
     // 乐观插入用户消息
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -118,6 +125,7 @@ export function useEngine() {
     s.messages = [...s.messages, res.reply];
     s.lastIntent = res.intent;
     s.lastFallback = res.fallback;
+    // 情绪已更新但未确认，等用户点确认
     rerender();
   }, [rerender]);
 
@@ -129,6 +137,8 @@ export function useEngine() {
     s.characterId = res.characterId;
     s.characterName = res.characterName;
     s.emotion = res.emotion;
+    s.previousEmotion = null;
+    s.emotionConfirmed = true;
     s.backgroundThreads = res.backgroundThreads;
     s.triggeredAnchors = res.triggeredAnchors;
     s.messages = res.messages;
@@ -143,6 +153,8 @@ export function useEngine() {
     saveSessionId(res.sessionId);
     s.messages = res.messages;
     s.triggeredAnchors = res.triggeredAnchors;
+    s.previousEmotion = null;
+    s.emotionConfirmed = true;
     rerender();
   }, [rerender]);
 
@@ -152,6 +164,14 @@ export function useEngine() {
     s.sessionId = res.sessionId;
     saveSessionId(res.sessionId);
     s.emotion = res.emotion;
+    s.previousEmotion = null;
+    s.emotionConfirmed = true;
+    rerender();
+  }, [rerender]);
+
+  const confirmEmotion = useCallback(() => {
+    const s = stateRef.current;
+    s.emotionConfirmed = true;
     rerender();
   }, [rerender]);
 
@@ -161,6 +181,9 @@ export function useEngine() {
     ready: stateRef.current.ready,
     getCharacter: (): ICharacter => getCharacterById(stateRef.current.characterId) ?? MOCK_CHARACTERS[0],
     getEmotion: (): EmotionVector => ({ ...stateRef.current.emotion }),
+    getPreviousEmotion: (): EmotionVector | null =>
+      stateRef.current.previousEmotion ? { ...stateRef.current.previousEmotion } : null,
+    getEmotionConfirmed: (): boolean => stateRef.current.emotionConfirmed,
     getBackgroundThreads: (): BackgroundThread[] => stateRef.current.backgroundThreads.map((t) => ({ ...t })),
     getTriggeredAnchors: (): TriggeredAnchor[] => [...stateRef.current.triggeredAnchors],
     getMessages: (): ChatMessage[] => [...stateRef.current.messages],
@@ -171,6 +194,7 @@ export function useEngine() {
     switchCharacter,
     clearHistory,
     resetEmotion,
+    confirmEmotion,
   };
 
   return controller;

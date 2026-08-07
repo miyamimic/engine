@@ -25,6 +25,8 @@ export default function ChatPage() {
 
   const character = engine.getCharacter();
   const emotion = engine.getEmotion();
+  const previousEmotion = engine.getPreviousEmotion();
+  const emotionConfirmed = engine.getEmotionConfirmed();
   const threads = engine.getBackgroundThreads();
   const anchors = engine.getTriggeredAnchors();
   const messages = engine.getMessages();
@@ -95,6 +97,9 @@ export default function ChatPage() {
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen((v) => !v)}
         emotion={emotion}
+        previousEmotion={previousEmotion}
+        emotionConfirmed={emotionConfirmed}
+        onConfirmEmotion={() => engine.confirmEmotion()}
         threads={threads}
         anchors={anchors}
         intent={intent}

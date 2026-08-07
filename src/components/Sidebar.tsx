@@ -10,6 +10,9 @@ interface Props {
   isOpen: boolean;
   onToggle: () => void;
   emotion: EmotionVector;
+  previousEmotion: EmotionVector | null;
+  emotionConfirmed: boolean;
+  onConfirmEmotion: () => void;
   threads: BackgroundThread[];
   anchors: TriggeredAnchor[];
   intent: IntentAnalysis | null;
@@ -42,6 +45,9 @@ export default function Sidebar({
   isOpen,
   onToggle,
   emotion,
+  previousEmotion,
+  emotionConfirmed,
+  onConfirmEmotion,
   threads,
   anchors,
   intent,
@@ -94,38 +100,73 @@ export default function Sidebar({
             <div className="mb-2 flex items-center gap-2">
               <Sparkles className="size-4 text-primary" />
               <h3 className="text-sm font-medium">六维情绪</h3>
+              {!emotionConfirmed && previousEmotion && (
+                <span className="ml-auto text-[10px] text-yellow-300/80 animate-pulse">待确认</span>
+              )}
             </div>
             <div className="rounded-lg border border-border/40 bg-background/40 p-2">
-              <EmotionRadar emotion={emotion} className="h-[240px] w-full" />
+              <EmotionRadar
+                emotion={emotion}
+                previousEmotion={previousEmotion ?? undefined}
+                confirmed={emotionConfirmed}
+                className="h-[260px] w-full"
+              />
             </div>
+            {/* 未确认时的确认提示 */}
+            {!emotionConfirmed && previousEmotion && (
+              <div className="mt-2 rounded-lg border border-yellow-300/30 bg-yellow-300/5 p-2.5">
+                <p className="text-[11px] text-yellow-200/80 mb-2">是否确认这是情绪变化？</p>
+                <button
+                  onClick={onConfirmEmotion}
+                  className="w-full rounded-md bg-yellow-300/20 hover:bg-yellow-300/30 border border-yellow-300/40 px-3 py-1.5 text-xs text-yellow-200 transition-colors"
+                >
+                  确认
+                </button>
+              </div>
+            )}
             {/* 数值条 */}
             <div className="mt-3 space-y-2">
               {(['anger', 'fear', 'joy', 'sadness', 'desire', 'warmth'] as const).map(
-                (key) => (
-                  <div key={key} className="flex items-center gap-2">
-                    <span className="w-12 text-xs text-muted-foreground">
-                      {
+                (key) => {
+                  const oldVal = previousEmotion?.[key];
+                  const diff = oldVal !== undefined ? emotion[key] - oldVal : 0;
+                  const hasChange = oldVal !== undefined && Math.abs(diff) >= 0.005;
+                  return (
+                    <div key={key} className="flex items-center gap-2">
+                      <span className="w-12 text-xs text-muted-foreground">
                         {
-                          anger: '愤怒',
-                          fear: '恐惧',
-                          joy: '喜悦',
-                          sadness: '悲伤',
-                          desire: '欲望',
-                          warmth: '温情',
-                        }[key]
-                      }
-                    </span>
-                    <div className="flex-1 h-1.5 rounded-full bg-muted/50 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-primary/70 transition-all duration-500"
-                        style={{ width: `${Math.round(emotion[key] * 100)}%` }}
-                      />
+                          {
+                            anger: '愤怒',
+                            fear: '恐惧',
+                            joy: '喜悦',
+                            sadness: '悲伤',
+                            desire: '欲望',
+                            warmth: '温情',
+                          }[key]
+                        }
+                      </span>
+                      <div className="flex-1 h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${Math.round(emotion[key] * 100)}%` }}
+                        />
+                      </div>
+                      <span className="w-8 text-right text-xs text-muted-foreground tabular-nums">
+                        {Math.round(emotion[key] * 100)}
+                      </span>
+                      {hasChange && (
+                        <span
+                          className={cn(
+                            'w-12 text-[10px] tabular-nums',
+                            diff > 0 ? 'text-red-400' : 'text-green-400',
+                          )}
+                        >
+                          {diff > 0 ? '+' : ''}{diff.toFixed(2)}
+                        </span>
+                      )}
                     </div>
-                    <span className="w-8 text-right text-xs text-muted-foreground tabular-nums">
-                      {Math.round(emotion[key] * 100)}
-                    </span>
-                  </div>
-                ),
+                  );
+                },
               )}
             </div>
           </div>
