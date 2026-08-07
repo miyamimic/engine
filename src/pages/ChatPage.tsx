@@ -49,6 +49,7 @@ export default function ChatPage() {
         sidebarOpen={sidebarOpen}
         onClearHistory={() => engine.clearHistory()}
         onResetEmotion={() => engine.resetEmotion()}
+        onLLMConfigChange={() => engine.reloadLLM()}
       />
       <div className={cn('flex h-full flex-col pt-14 transition-all duration-300', sidebarOpen ? 'pr-80' : 'pr-0')}>
         <div className="flex-1 overflow-y-auto">

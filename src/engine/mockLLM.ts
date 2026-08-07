@@ -1,6 +1,30 @@
-// EXPORTS: MockLLM, generateMockReply
+// EXPORTS: MockLLM, RealLLM, createLLM, generateMockReply, type ILLM, type LLMConfig
 import type { ICharacter, EmotionVector } from '../data/types';
 import { runPostprocessor } from './postprocessor';
+
+/**
+ * 统一 LLM 接口 —— Mock 与真实 API 实现同一接口，上层无需感知
+ */
+export interface ILLM {
+  generate(
+    character: ICharacter,
+    emotion: EmotionVector,
+    threads: string[],
+    memories: string[],
+    userInput: string,
+    prompt?: string,
+  ): Promise<string>;
+}
+
+/**
+ * LLM 配置（与 TopBar 中的 LLMConfig 保持一致）
+ */
+export interface LLMConfig {
+  mode: 'mock' | 'api';
+  endpoint: string;
+  apiKey: string;
+  model: string;
+}
 
 /**
  * MockLLM - 基于规则和模板的模拟 LLM，用于演示
@@ -223,7 +247,7 @@ export function generateMockReply(
   return reply;
 }
 
-export class MockLLM {
+export class MockLLM implements ILLM {
   private delayMs: number;
 
   constructor(delayMs = 800) {
@@ -236,11 +260,98 @@ export class MockLLM {
     threads: string[],
     memories: string[],
     userInput: string,
+    _prompt?: string,
   ): Promise<string> {
     // 模拟网络延迟
     await new Promise((r) => setTimeout(r, this.delayMs + Math.random() * 500));
     return generateMockReply(character, emotion, threads, memories, userInput);
   }
+}
+
+/**
+ * RealLLM - 调用 OpenAI 兼容的真实 LLM 接口
+ * 把预处理管道组装好的结构化提示词发给模型，模型能识别用户输入语义（含网络梗），
+ * 而不是从模板随机抽取。失败时抛出错误，由上层决定是否回退 Mock。
+ */
+export class RealLLM implements ILLM {
+  private endpoint: string;
+  private apiKey: string;
+  private model: string;
+  private delayMs: number;
+
+  constructor(config: LLMConfig, delayMs = 300) {
+    this.endpoint = config.endpoint.trim();
+    this.apiKey = config.apiKey.trim();
+    this.model = config.model.trim();
+    this.delayMs = delayMs;
+  }
+
+  async generate(
+    _character: ICharacter,
+    _emotion: EmotionVector,
+    _threads: string[],
+    _memories: string[],
+    userInput: string,
+    prompt?: string,
+  ): Promise<string> {
+    if (!this.endpoint || !this.apiKey || !this.model) {
+      throw new Error('LLM 配置不完整：请填写 endpoint、apiKey、model');
+    }
+
+    // 提示词由预处理管道 buildPrompt 生成，已包含人格/情绪/思绪/记忆/对话历史/用户输入/格式约束
+    const finalPrompt = prompt ?? userInput;
+
+    const body = {
+      model: this.model,
+      messages: [
+        {
+          role: 'system',
+          content:
+            '你是一个角色扮演叙事引擎的文本生成模块。严格依据用户给出的结构化提示词生成角色回复，' +
+            '只输出角色本人在当前情境下会说的话与动作，不要解释、不要复述提示词、不要扮演用户。' +
+            '动作用 *包裹*，心理活动用 (括号) 包裹，其余为言语。第一人称"我"。',
+        },
+        { role: 'user', content: finalPrompt },
+      ],
+      temperature: 0.85,
+      max_tokens: 400,
+      stream: false,
+    };
+
+    const res = await fetch(this.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`LLM 接口返回 ${res.status}：${errText.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    const content: string | undefined = data?.choices?.[0]?.message?.content;
+    if (!content || !content.trim()) {
+      throw new Error('LLM 返回内容为空');
+    }
+
+    // 给网络一点缓冲感，与打字动画节奏对齐
+    await new Promise((r) => setTimeout(r, this.delayMs));
+    return content.trim();
+  }
+}
+
+/**
+ * 根据配置创建对应的 LLM 实例
+ */
+export function createLLM(config: LLMConfig): ILLM {
+  if (config.mode === 'api' && config.endpoint && config.apiKey && config.model) {
+    return new RealLLM(config);
+  }
+  return new MockLLM(800);
 }
 
 // 同时提供后处理包装
