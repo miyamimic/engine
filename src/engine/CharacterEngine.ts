@@ -10,11 +10,22 @@ import type {
 } from '../data/types';
 import { runPreprocessor } from './preprocessor';
 import { runPostprocessor } from './postprocessor';
-import { MockLLM, generateMockReply } from './mockLLM';
+import { MockLLM, createLLM, type ILLM, type LLMConfig } from './mockLLM';
 import { getCharacterById, MOCK_CHARACTERS } from '../data/characters';
 import { scopedStorage } from '@lark-apaas/client-toolkit-lite';
 
 const HISTORY_KEY = 'rp_engine_chat_history';
+const LLM_CONFIG_KEY = 'rp_engine_llm_config';
+
+function loadLLMConfig(): LLMConfig {
+  try {
+    const raw = scopedStorage.getItem(LLM_CONFIG_KEY);
+    if (raw) return JSON.parse(raw) as LLMConfig;
+  } catch {
+    // ignore
+  }
+  return { mode: 'mock', endpoint: '', apiKey: '', model: '' };
+}
 
 interface EngineState {
   currentCharacter: ICharacter;
@@ -26,7 +37,7 @@ interface EngineState {
 
 export class CharacterEngine {
   private state: EngineState;
-  private llm: MockLLM;
+  private llm: ILLM;
   private listeners: Set<() => void> = new Set();
 
   constructor(initialCharacterId: string = 'char_001') {
@@ -38,7 +49,15 @@ export class CharacterEngine {
       triggeredAnchors: [],
       messages: this.loadHistory(),
     };
-    this.llm = new MockLLM(800);
+    this.llm = createLLM(loadLLMConfig());
+  }
+
+  /**
+   * 重新读取 LLM 配置并重建 LLM 实例
+   * 设置面板保存后调用，切换 Mock / 真实 API
+   */
+  reloadLLM(): void {
+    this.llm = createLLM(loadLLMConfig());
   }
 
   private cloneCharacter(char: ICharacter): ICharacter {
@@ -170,13 +189,37 @@ export class CharacterEngine {
     this.notify();
 
     // LLM 生成
-    const rawReply = await this.llm.generate(
-      char,
-      preResult.newEmotion,
-      preResult.drawnThreads.map((t) => t.content),
-      preResult.memoryReactions,
-      trimmed,
-    );
+    let rawReply: string;
+    try {
+      rawReply = await this.llm.generate(
+        char,
+        preResult.newEmotion,
+        preResult.drawnThreads.map((t) => t.content),
+        preResult.memoryReactions,
+        trimmed,
+        preResult.prompt,
+      );
+    } catch (err) {
+      // 真实 API 失败时回退 Mock，保证对话不中断
+      const fallback = new MockLLM(400);
+      rawReply = await fallback.generate(
+        char,
+        preResult.newEmotion,
+        preResult.drawnThreads.map((t) => t.content),
+        preResult.memoryReactions,
+        trimmed,
+      );
+      // 在回复前追加一条系统提示，便于调试
+      const reason = err instanceof Error ? err.message : String(err);
+      this.state.messages.push({
+        id: `sys-err-${Date.now()}`,
+        role: 'character',
+        content: `（LLM 调用失败，已回退本地生成：${reason.slice(0, 80)}）`,
+        segments: [{ type: 'thought', text: `LLM 调用失败，已回退本地生成：${reason.slice(0, 80)}` }],
+        timestamp: Date.now(),
+        characterId: char.character_id,
+      });
+    }
 
     // 后处理管道
     const { segments, cleanedText } = runPostprocessor(rawReply, char);

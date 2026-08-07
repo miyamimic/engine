@@ -46,6 +46,7 @@ interface Props {
   sidebarOpen: boolean;
   onClearHistory: () => void;
   onResetEmotion: () => void;
+  onLLMConfigChange?: () => void;
 }
 
 const LLM_CONFIG_KEY = 'rp_engine_llm_config';
@@ -80,6 +81,7 @@ export default function TopBar({
   sidebarOpen,
   onClearHistory,
   onResetEmotion,
+  onLLMConfigChange,
 }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [llmMode, setLlmMode] = useState<'mock' | 'api'>(loadLLMConfig().mode);
@@ -91,7 +93,13 @@ export default function TopBar({
     const config: LLMConfig = { mode: llmMode, endpoint, apiKey, model };
     try {
       scopedStorage.setItem(LLM_CONFIG_KEY, JSON.stringify(config));
-      toast.success('设置已保存');
+      // 通知引擎重建 LLM 实例，使新模式立即生效
+      onLLMConfigChange?.();
+      toast.success(
+        llmMode === 'api'
+          ? '设置已保存，已切换到真实 LLM 接口'
+          : '设置已保存，已切换到本地 Mock',
+      );
       setSettingsOpen(false);
     } catch {
       toast.error('保存失败');
@@ -243,7 +251,7 @@ export default function TopBar({
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  注意：API 模式为占位功能，实际调用需自行适配接口格式。
+                  填写 OpenAI 兼容接口（/v1/chat/completions）。保存后即生效，回复由真实模型生成，能识别网络梗等任意输入。调用失败会自动回退本地生成。
                 </p>
               </div>
             )}
