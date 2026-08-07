@@ -16,7 +16,7 @@ export interface EmotionTrigger {
 
 export interface BackgroundThread {
   content: string;
-  remaining_turns: number;
+  remainingTurns: number;
 }
 
 export interface MemoryAnchor {

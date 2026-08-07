@@ -24,9 +24,9 @@ const LU_CHEN: ICharacter = {
   },
   background_threads: {
     active: [
-      { content: '昨晚没睡好，头有点沉', remaining_turns: 3 },
-      { content: '杯子里的威士忌快见底了', remaining_turns: 2 },
-      { content: '今天的灯光好像比平时暗一点', remaining_turns: 4 },
+      { content: '昨晚没睡好，头有点沉', remainingTurns: 3 },
+      { content: '杯子里的威士忌快见底了', remainingTurns: 2 },
+      { content: '今天的灯光好像比平时暗一点', remainingTurns: 4 },
     ],
   },
   memory: {
@@ -81,9 +81,9 @@ const A_YE: ICharacter = {
   },
   background_threads: {
     active: [
-      { content: '今天训练累得要死，但还是想见面', remaining_turns: 3 },
-      { content: '口袋里的糖是给你带的', remaining_turns: 2 },
-      { content: '你的头发闻起来好香', remaining_turns: 4 },
+      { content: '今天训练累得要死，但还是想见面', remainingTurns: 3 },
+      { content: '口袋里的糖是给你带的', remainingTurns: 2 },
+      { content: '你的头发闻起来好香', remainingTurns: 4 },
     ],
   },
   memory: {
