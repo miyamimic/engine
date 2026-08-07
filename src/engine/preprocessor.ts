@@ -14,10 +14,16 @@ import {
   INSTINCT_DESCRIPTIONS,
   SPEECH_FILTER_DESCRIPTIONS,
 } from './emotion';
+import {
+  matchMemes,
+  mergeMemeEmotionDelta,
+  type MemeMatch,
+} from '../data/memeDict';
 
 export interface PreprocessorResult {
   newEmotion: EmotionVector;
   triggerDelta: Partial<EmotionVector>;
+  memeMatches: MemeMatch[];
   drawnThreads: BackgroundThread[];
   updatedThreads: BackgroundThread[];
   triggeredAnchors: MemoryAnchor[];
@@ -127,6 +133,7 @@ export function buildPrompt(
   memoryReactions: string[],
   recentMessages: ChatMessage[],
   userInput: string,
+  memeMatches: MemeMatch[] = [],
 ): string {
   const { core, action_tendency } = character;
 
@@ -144,6 +151,27 @@ export function buildPrompt(
     `愤怒：${emotion.anger.toFixed(2)}，恐惧：${emotion.fear.toFixed(2)}，喜悦：${emotion.joy.toFixed(2)}，悲伤：${emotion.sadness.toFixed(2)}，欲望：${emotion.desire.toFixed(2)}，温情：${emotion.warmth.toFixed(2)}`,
   );
   lines.push(describeEmotion(emotion));
+  lines.push('');
+
+  lines.push('[网络梗识别]');
+  if (memeMatches.length > 0) {
+    lines.push(`用户使用了 ${memeMatches.length} 个网络梗：`);
+    memeMatches.forEach((m) => {
+      const cats: Record<string, string> = {
+        sad: '丧',
+        happy: '开心',
+        mock: '调侃',
+        flirt: '撩',
+        anger: '挑衅',
+        chill: '摆烂',
+        confuse: '困惑',
+      };
+      lines.push(`- 《${m.entry.name}》（关键词：${m.hitKeyword}，类型：${cats[m.entry.category]}）`);
+    });
+    lines.push('提示：用户在用梗互动，回应应识别梗并带点梗味，不要无视。');
+  } else {
+    lines.push('（用户未使用已知网络梗）');
+  }
   lines.push('');
 
   lines.push('[后台思绪]');
@@ -200,12 +228,26 @@ export function runPreprocessor(
   // 步骤1：trigger 匹配
   const triggerDelta = matchTriggers(userInput, character.emotion.triggers);
 
-  // 步骤2：情绪惯性更新（先应用 trigger delta 到 target）
+  // 步骤1.5：网络梗识别（本地词典匹配，不依赖 LLM）
+  const memeMatches = matchMemes(userInput);
+  const memeDelta = mergeMemeEmotionDelta(memeMatches);
+
+  // 把梗的 delta 合并到 trigger delta，一起进入情绪惯性更新
+  const keys: (keyof EmotionVector)[] = ['anger', 'fear', 'joy', 'sadness', 'desire', 'warmth'];
+  const combinedDelta: Partial<EmotionVector> = { ...triggerDelta };
+  for (const k of keys) {
+    const v = memeDelta[k];
+    if (v !== undefined) {
+      combinedDelta[k] = (combinedDelta[k] ?? 0) + v;
+    }
+  }
+
+  // 步骤2：情绪惯性更新（先应用 trigger+梗 delta 到 target）
   let newEmotion = updateEmotionWithInertia(
     character.emotion.current,
     character.emotion.baseline,
     character.emotion.inertia,
-    triggerDelta,
+    combinedDelta,
   );
 
   // 步骤3：后台思绪处理
@@ -234,11 +276,13 @@ export function runPreprocessor(
     memoryReactions,
     recentMessages,
     userInput,
+    memeMatches,
   );
 
   return {
     newEmotion,
     triggerDelta,
+    memeMatches,
     drawnThreads,
     updatedThreads,
     triggeredAnchors,

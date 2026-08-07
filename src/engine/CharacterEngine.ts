@@ -8,6 +8,7 @@ import type {
   TriggeredAnchor,
   MessageSegment,
 } from '../data/types';
+import type { MemeMatch } from '../data/memeDict';
 import { runPreprocessor } from './preprocessor';
 import { runPostprocessor } from './postprocessor';
 import { MockLLM, createLLM, type ILLM, type LLMConfig } from './mockLLM';
@@ -33,6 +34,8 @@ interface EngineState {
   backgroundThreads: BackgroundThread[];
   triggeredAnchors: TriggeredAnchor[];
   messages: ChatMessage[];
+  /** 最近一次用户输入识别到的网络梗（用于侧边栏展示） */
+  lastMemeMatches: MemeMatch[];
 }
 
 export class CharacterEngine {
@@ -48,6 +51,7 @@ export class CharacterEngine {
       backgroundThreads: char.background_threads.active.map((t) => ({ ...t })),
       triggeredAnchors: [],
       messages: this.loadHistory(),
+      lastMemeMatches: [],
     };
     this.llm = createLLM(loadLLMConfig());
   }
@@ -111,6 +115,10 @@ export class CharacterEngine {
     return [...this.state.triggeredAnchors];
   }
 
+  getLastMemeMatches(): MemeMatch[] {
+    return [...this.state.lastMemeMatches];
+  }
+
   getMessages(): ChatMessage[] {
     return [...this.state.messages];
   }
@@ -130,6 +138,7 @@ export class CharacterEngine {
     this.state.emotion = { ...char.emotion.baseline };
     this.state.backgroundThreads = char.background_threads.active.map((t) => ({ ...t }));
     this.state.triggeredAnchors = [];
+    this.state.lastMemeMatches = [];
     // 保留对话历史（不重置 messages）
 
     // 添加系统提示消息
@@ -173,6 +182,7 @@ export class CharacterEngine {
     // 更新状态
     this.state.emotion = preResult.newEmotion;
     this.state.backgroundThreads = preResult.updatedThreads;
+    this.state.lastMemeMatches = preResult.memeMatches;
 
     // 记录触发的锚点
     preResult.triggeredAnchors.forEach((anchor) => {

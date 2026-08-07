@@ -1,6 +1,12 @@
 // EXPORTS: MockLLM, RealLLM, createLLM, generateMockReply, type ILLM, type LLMConfig
 import type { ICharacter, EmotionVector } from '../data/types';
 import { runPostprocessor } from './postprocessor';
+import {
+  matchMemes,
+  pickMemeReaction,
+  pickMemeEcho,
+  type MemeMatch,
+} from '../data/memeDict';
 
 /**
  * 统一 LLM 接口 —— Mock 与真实 API 实现同一接口，上层无需感知
@@ -196,6 +202,9 @@ function generateThought(
 
 /**
  * MockLLM 核心生成函数
+ *
+ * 关键：如果用户输入命中网络梗，优先用梗词典里的针对性反应台词，
+ * 而不是从通用情绪模板随机抽——这样回复"针对梗"，不是机器板式。
  */
 export function generateMockReply(
   character: ICharacter,
@@ -204,11 +213,25 @@ export function generateMockReply(
   memories: string[],
   userInput: string,
 ): string {
-  const context: MockContext = { emotion, threads, memories, userInput };
+  // === 网络梗识别（本地） ===
+  const memeMatches: MemeMatch[] = matchMemes(userInput);
+  const memeReaction = pickMemeReaction(memeMatches, character.core.speech_filter);
+  const memeEcho = pickMemeEcho(memeMatches);
 
-  // 生成言语部分
-  const speechLines = getSpeechTemplate(character, emotion);
-  const mainSpeech = speechLines[0] || '……嗯。';
+  // 生成言语部分：命中梗时用梗反应台词，否则走情绪模板
+  let mainSpeech: string;
+  let secondSpeech: string | null = null;
+  if (memeReaction) {
+    mainSpeech = memeReaction;
+    // 接梗心理活动作为第二句
+    if (memeEcho) {
+      secondSpeech = memeEcho;
+    }
+  } else {
+    const speechLines = getSpeechTemplate(character, emotion);
+    mainSpeech = speechLines[0] || '……嗯。';
+    secondSpeech = speechLines[1] || null;
+  }
 
   // 生成控制动作
   const controlAction = generateControlAction(character, emotion);
@@ -216,8 +239,19 @@ export function generateMockReply(
   // 生成触碰动作
   const touchAction = generateTouchAction(character, emotion);
 
-  // 生成心理活动
-  const thought = generateThought(character, emotion, threads, memories);
+  // 生成心理活动（命中梗时给一句"识梗"心理活动，增强梗味）
+  let thought: string;
+  if (memeMatches.length > 0) {
+    const memeThoughts = [
+      `（这小家伙……居然还会用"${memeMatches[0].entry.name}"这种梗）`,
+      `（"${memeMatches[0].entry.name}"……啧，时代真是变了）`,
+      `（识破了。这梗我接得住。）`,
+      `（玩梗？行，陪你玩。）`,
+    ];
+    thought = pickRandom(memeThoughts);
+  } else {
+    thought = generateThought(character, emotion, threads, memories);
+  }
 
   // 组装回复 - 混合三种格式
   // 结构大致：动作 + 言语 + 心理活动 + 动作 + 言语
@@ -227,7 +261,7 @@ export function generateMockReply(
     // pattern 2: 言语开头，动作中间，触碰结尾
     () => `${mainSpeech}\n*${touchAction}*\n${thought}`,
     // pattern 3: 心理开头，两个动作，言语
-    () => `${thought}\n*${controlAction}*\n*${touchAction}*\n${speechLines[1] || mainSpeech}`,
+    () => `${thought}\n*${controlAction}*\n*${touchAction}*\n${secondSpeech || mainSpeech}`,
     // pattern 4: 动作+触碰一起，言语，心理
     () => `*${controlAction}*\n*${touchAction}*\n${mainSpeech}\n${thought}`,
     // pattern 5: 短回复

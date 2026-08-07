@@ -1,6 +1,7 @@
-import { ChevronLeft, ChevronRight, Brain, Sparkles, BookMarked } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Brain, Sparkles, BookMarked, Hash } from 'lucide-react';
 import EmotionRadar from './EmotionRadar';
 import type { EmotionVector, BackgroundThread, TriggeredAnchor } from '../data/types';
+import type { MemeMatch } from '../data/memeDict';
 import { cn } from '../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale/zh-CN';
@@ -11,8 +12,29 @@ interface Props {
   emotion: EmotionVector;
   threads: BackgroundThread[];
   anchors: TriggeredAnchor[];
+  memeMatches: MemeMatch[];
   characterName: string;
 }
+
+const MEME_CATEGORY_LABEL: Record<string, string> = {
+  sad: '丧',
+  happy: '开心',
+  mock: '调侃',
+  flirt: '撩',
+  anger: '挑衅',
+  chill: '摆烂',
+  confuse: '困惑',
+};
+
+const MEME_CATEGORY_COLOR: Record<string, string> = {
+  sad: 'text-blue-300',
+  happy: 'text-yellow-300',
+  mock: 'text-purple-300',
+  flirt: 'text-pink-300',
+  anger: 'text-red-300',
+  chill: 'text-green-300',
+  confuse: 'text-cyan-300',
+};
 
 export default function Sidebar({
   isOpen,
@@ -20,6 +42,7 @@ export default function Sidebar({
   emotion,
   threads,
   anchors,
+  memeMatches,
   characterName,
 }: Props) {
   return (
@@ -102,6 +125,51 @@ export default function Sidebar({
                 ),
               )}
             </div>
+          </div>
+
+          {/* 网络梗识别（本地） */}
+          <div>
+            <div className="mb-2 flex items-center gap-2">
+              <Hash className="size-4 text-primary" />
+              <h3 className="text-sm font-medium">网络梗识别</h3>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {memeMatches.length > 0 ? `${memeMatches.length} 个` : '本地词典'}
+              </span>
+            </div>
+            {memeMatches.length === 0 ? (
+              <div className="rounded-lg border border-border/40 bg-background/40 p-3 text-center text-xs text-muted-foreground">
+                上条消息未命中已知网络梗
+                <div className="mt-1 text-[10px] opacity-70">试试：栓Q / 破防了 / yyds / 摆烂</div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {memeMatches.map((m, i) => (
+                  <div
+                    key={`${m.entry.id}-${i}`}
+                    className="rounded-lg border border-border/40 bg-background/40 p-3"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-primary">
+                        《{m.entry.name}》
+                      </span>
+                      <span className={cn('text-[10px]', MEME_CATEGORY_COLOR[m.entry.category])}>
+                        {MEME_CATEGORY_LABEL[m.entry.category]}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      命中关键词：<span className="text-foreground/80">{m.hitKeyword}</span>
+                    </div>
+                    <div className="mt-1.5 text-[10px] text-muted-foreground">
+                      情绪偏移：
+                      {Object.entries(m.entry.emotionDelta)
+                        .filter(([, v]) => v !== undefined && v !== 0)
+                        .map(([k, v]) => `${({ anger: '怒', fear: '惧', joy: '喜', sadness: '悲', desire: '欲', warmth: '温' } as Record<string, string>)[k]}${v! > 0 ? '+' : ''}${v!.toFixed(2)}`)
+                        .join(' ')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 后台思绪 */}

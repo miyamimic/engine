@@ -27,6 +27,7 @@ export default function ChatPage() {
   const emotion = engine.getEmotion();
   const threads = engine.getBackgroundThreads();
   const anchors = engine.getTriggeredAnchors();
+  const memeMatches = engine.getLastMemeMatches();
   const messages = engine.getMessages();
 
   const handleSend = async (text: string) => {
@@ -64,7 +65,7 @@ export default function ChatPage() {
                   角色扮演叙事引擎，所有情绪计算、动作校验、记忆锚点都运行在本地，LLM 仅作为文本生成模块。
                 </p>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {['我好难受', '想你了', '不行，我做不到', '乖，听话'].map((s) => (
+                  {['栓Q，破防了', '我emo了', 'yyds', '摆烂了', '想你'].map((s) => (
                     <button
                       key={s}
                       onClick={() => handleSend(s)}
@@ -95,6 +96,7 @@ export default function ChatPage() {
         emotion={emotion}
         threads={threads}
         anchors={anchors}
+        memeMatches={memeMatches}
         characterName={character.name}
       />
     </div>
