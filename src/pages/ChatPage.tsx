@@ -15,7 +15,7 @@ export default function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
-  if (!engine) {
+  if (!engine.ready) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-background">
         <div className="text-muted-foreground">加载中...</div>
@@ -28,11 +28,14 @@ export default function ChatPage() {
   const threads = engine.getBackgroundThreads();
   const anchors = engine.getTriggeredAnchors();
   const messages = engine.getMessages();
+  const intent = engine.getLastIntent();
 
   const handleSend = async (text: string) => {
     setIsLoading(true);
     try {
       await engine.sendMessage(text);
+    } catch (e) {
+      console.error('发送失败', e);
     } finally {
       setIsLoading(false);
     }
@@ -49,7 +52,6 @@ export default function ChatPage() {
         sidebarOpen={sidebarOpen}
         onClearHistory={() => engine.clearHistory()}
         onResetEmotion={() => engine.resetEmotion()}
-        onLLMConfigChange={() => engine.reloadLLM()}
       />
       <div className={cn('flex h-full flex-col pt-14 transition-all duration-300', sidebarOpen ? 'pr-80' : 'pr-0')}>
         <div className="flex-1 overflow-y-auto">
@@ -61,10 +63,10 @@ export default function ChatPage() {
                 </div>
                 <h1 className="text-xl font-semibold text-foreground mb-2">正在与 {character.name} 对话</h1>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed mb-6">
-                  角色扮演叙事引擎，所有情绪计算、动作校验、记忆锚点都运行在本地，LLM 仅作为文本生成模块。
+                  角色扮演叙事引擎：Python 后端负责 NLP 意图理解、六维情绪惯性、记忆锚点与 LLM 生成，前端只做 UI。
                 </p>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {['我好难受', '想你了', '不行，我做不到', '乖，听话'].map((s) => (
+                  {['我真的破防了emo', '不行，我做不到', '想你', '你胸肌练得不错'].map((s) => (
                     <button
                       key={s}
                       onClick={() => handleSend(s)}
@@ -95,6 +97,8 @@ export default function ChatPage() {
         emotion={emotion}
         threads={threads}
         anchors={anchors}
+        intent={intent}
+        fallback={engine.getLastFallback()}
         characterName={character.name}
       />
     </div>

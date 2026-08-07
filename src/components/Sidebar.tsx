@@ -1,6 +1,7 @@
-import { ChevronLeft, ChevronRight, Brain, Sparkles, BookMarked } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Brain, Sparkles, BookMarked, ScanSearch } from 'lucide-react';
 import EmotionRadar from './EmotionRadar';
 import type { EmotionVector, BackgroundThread, TriggeredAnchor } from '../data/types';
+import type { IntentAnalysis } from '../lib/api';
 import { cn } from '../lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale/zh-CN';
@@ -11,8 +12,31 @@ interface Props {
   emotion: EmotionVector;
   threads: BackgroundThread[];
   anchors: TriggeredAnchor[];
+  intent: IntentAnalysis | null;
+  fallback: boolean;
   characterName: string;
 }
+
+const SENTIMENT_LABEL: Record<string, string> = {
+  positive: '正向',
+  negative: '负向',
+  neutral: '中性',
+};
+
+const SENTIMENT_COLOR: Record<string, string> = {
+  positive: 'text-yellow-300',
+  negative: 'text-red-300',
+  neutral: 'text-muted-foreground',
+};
+
+const EMOTION_SHORT: Record<string, string> = {
+  anger: '怒',
+  fear: '惧',
+  joy: '喜',
+  sadness: '悲',
+  desire: '欲',
+  warmth: '温',
+};
 
 export default function Sidebar({
   isOpen,
@@ -20,6 +44,8 @@ export default function Sidebar({
   emotion,
   threads,
   anchors,
+  intent,
+  fallback,
   characterName,
 }: Props) {
   return (
@@ -104,6 +130,56 @@ export default function Sidebar({
             </div>
           </div>
 
+          {/* NLP 意图分析（后端 spaCy + LLM） */}
+          <div>
+            <div className="mb-2 flex items-center gap-2">
+              <ScanSearch className="size-4 text-primary" />
+              <h3 className="text-sm font-medium">NLP 意图分析</h3>
+              {fallback && (
+                <span className="ml-auto text-[10px] text-yellow-300/80">LLM 回退</span>
+              )}
+            </div>
+            {!intent ? (
+              <div className="rounded-lg border border-border/40 bg-background/40 p-3 text-center text-xs text-muted-foreground">
+                发送消息后，这里展示后端对输入的理解
+                <div className="mt-1 text-[10px] opacity-70">意图 / 实体 / 情感 / 情绪增量</div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="rounded-lg border border-border/40 bg-background/40 p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-semibold text-primary">
+                      {intent.intentLabel || intent.intent || '中性'}
+                    </span>
+                    <span className={cn('text-[10px]', SENTIMENT_COLOR[intent.sentiment] || 'text-muted-foreground')}>
+                      {SENTIMENT_LABEL[intent.sentiment] || intent.sentiment}
+                    </span>
+                  </div>
+                  {intent.entities.length > 0 && (
+                    <div className="mb-1.5 text-[10px] text-muted-foreground">
+                      实体：
+                      <span className="text-foreground/80">{intent.entities.join('、')}</span>
+                    </div>
+                  )}
+                  {Object.keys(intent.emotionDelta).length > 0 && (
+                    <div className="text-[10px] text-muted-foreground">
+                      情绪增量：
+                      {Object.entries(intent.emotionDelta)
+                        .filter(([, v]) => v !== undefined && v !== 0)
+                        .map(([k, v]) => `${EMOTION_SHORT[k] ?? k}${v! > 0 ? '+' : ''}${v!.toFixed(2)}`)
+                        .join(' ')}
+                    </div>
+                  )}
+                  {intent.notes && (
+                    <div className="mt-1.5 text-[10px] text-muted-foreground/70 leading-relaxed">
+                      {intent.notes}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* 后台思绪 */}
           <div>
             <div className="mb-2 flex items-center gap-2">
@@ -127,12 +203,12 @@ export default function Sidebar({
                     <p className="text-sm text-foreground/90">{t.content}</p>
                     <div className="mt-1.5 flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        剩余 {t.remaining_turns} 轮
+                        剩余 {t.remainingTurns} 轮
                       </span>
                       <div className="h-1 w-16 rounded-full bg-muted/50 overflow-hidden">
                         <div
                           className="h-full rounded-full bg-accent-foreground/40"
-                          style={{ width: `${Math.min(100, t.remaining_turns * 25)}%` }}
+                          style={{ width: `${Math.min(100, t.remainingTurns * 25)}%` }}
                         />
                       </div>
                     </div>
