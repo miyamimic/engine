@@ -1,0 +1,305 @@
+/* ========== 全局变量与基础重置 ========== */
+:root {
+  --bg-0: #0a0612;
+  --bg-1: #150a24;
+  --bg-2: #1d1034;
+  --fg-0: #f1e9ff;
+  --fg-1: #c8b7e3;
+  --fg-2: #8a7cae;
+  --accent: #b48bff;
+  --accent-2: #ff8bc7;
+  --user-bubble: linear-gradient(135deg, #6a5cff, #a078ff);
+  --char-bubble: linear-gradient(135deg, #241536, #3a1e58);
+  --action-color: #f0c1ff;
+  --thought-color: #9a8fc0;
+  --border: rgba(180, 139, 255, 0.22);
+  --shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  --radius: 16px;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  color: var(--fg-0);
+  background: var(--bg-0);
+  overflow: hidden;
+}
+
+/* ========== 动态背景：酒吧/室内氛围感 ========== */
+.app-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(1200px 800px at 20% 10%, #2a1252 0%, transparent 60%),
+              radial-gradient(1000px 700px at 80% 90%, #4a1647 0%, transparent 55%),
+              linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 50%, #0a0417 100%);
+  overflow: hidden;
+}
+
+/* 漂浮粒子层 */
+.particles-layer, .particles-layer-2 {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+}
+.particle {
+  position: absolute;
+  width: 4px; height: 4px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,200,255,0.9), rgba(180,139,255,0) 70%);
+  filter: blur(0.5px);
+  animation: float linear infinite;
+  opacity: 0.7;
+}
+.particles-layer-2 .particle {
+  background: radial-gradient(circle, rgba(255,180,220,0.8), transparent 70%);
+  animation-duration: 40s;
+  animation-direction: reverse;
+}
+@keyframes float {
+  0%   { transform: translate3d(0, 110vh, 0) scale(0.7); opacity: 0; }
+  10%  { opacity: 0.8; }
+  90%  { opacity: 0.5; }
+  100% { transform: translate3d(20px, -20vh, 0) scale(1.3); opacity: 0; }
+}
+
+/* 光晕（顶部模拟暖光吊灯） */
+.halo {
+  position: absolute; top: -120px; left: 50%; transform: translateX(-50%);
+  width: 900px; height: 900px; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 180, 120, 0.18) 0%, rgba(255,120,200,0.08) 30%, transparent 70%);
+  filter: blur(20px);
+  animation: haloPulse 8s ease-in-out infinite;
+}
+@keyframes haloPulse {
+  0%,100% { opacity: 0.75; transform: translateX(-50%) scale(1); }
+  50%     { opacity: 0.95; transform: translateX(-50%) scale(1.04); }
+}
+
+/* ========== 主布局 ========== */
+.app-inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 18px 16px 12px;
+}
+
+/* 顶部栏：角色切换 + 情绪条 */
+.topbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(29, 16, 52, 0.55);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(8px);
+  flex-wrap: wrap;
+}
+.char-select {
+  display: flex; align-items: center; gap: 8px;
+}
+.char-select label { font-size: 13px; color: var(--fg-1); }
+.char-select select {
+  background: #1a0e30; color: var(--fg-0);
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 6px 10px; font-size: 14px; outline: none;
+}
+.char-name {
+  font-size: 15px; font-weight: 600; letter-spacing: 0.5px;
+  color: var(--fg-0);
+}
+
+/* 情绪条 */
+.emotion-strip {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  flex: 1 1 360px;
+}
+.emo-cell {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 4px 6px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 8px;
+  min-width: 0;
+}
+.emo-name {
+  font-size: 11px; color: var(--fg-2);
+  display: flex; justify-content: space-between;
+}
+.emo-bar {
+  height: 6px; background: rgba(255,255,255,0.06);
+  border-radius: 999px; overflow: hidden;
+}
+.emo-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 400ms ease, background 400ms ease;
+}
+
+/* ========== 对话窗口 ========== */
+.chat-scroll {
+  margin-top: 14px;
+  overflow-y: auto;
+  padding: 10px 4px 16px;
+  scroll-behavior: smooth;
+}
+.chat-scroll::-webkit-scrollbar { width: 6px; }
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: rgba(180,139,255,0.25); border-radius: 999px;
+}
+
+.msg-row {
+  display: flex;
+  margin-bottom: 14px;
+  gap: 10px;
+  animation: msgIn 320ms ease both;
+}
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.msg-row.user { flex-direction: row-reverse; }
+
+.avatar {
+  flex-shrink: 0;
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700;
+  box-shadow: var(--shadow);
+}
+.avatar.user { background: linear-gradient(135deg, #6a5cff, #ff8bc7); }
+.avatar.char { background: linear-gradient(135deg, #4a1e7a, #8b3ca8); }
+
+.bubble {
+  max-width: 72%;
+  padding: 10px 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  line-height: 1.6;
+  font-size: 15px;
+  word-break: break-word;
+}
+.bubble.user {
+  background: var(--user-bubble);
+  border-top-right-radius: 6px;
+  color: #fff;
+}
+.bubble.char {
+  background: var(--char-bubble);
+  border-top-left-radius: 6px;
+}
+
+/* ========== 三种消息格式样式 ========== */
+/* 言语：不加样式（继承 bubble） */
+.speech {}
+.speech + .speech { margin-top: 4px; }
+
+/* 动作：斜体 + 特殊颜色 */
+.action {
+  font-style: italic;
+  color: var(--action-color);
+  margin-top: 6px;
+}
+.action::before, .action::after {
+  color: rgba(240, 193, 255, 0.5);
+}
+
+/* 心理活动：灰色小字 + 括号 */
+.thought {
+  color: var(--thought-color);
+  font-size: 13px;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+.typing-dot {
+  display: inline-block; width: 5px; height: 5px; margin: 0 2px;
+  border-radius: 50%; background: var(--fg-2);
+  animation: typing 1.1s infinite ease-in-out;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.18s; }
+.typing-dot:nth-child(3) { animation-delay: 0.36s; }
+@keyframes typing {
+  0%,60%,100% { transform: translateY(0); opacity: 0.4; }
+  30%         { transform: translateY(-3px); opacity: 1; }
+}
+
+/* ========== 输入区 ========== */
+.inputbar {
+  margin-top: 10px;
+  display: flex; gap: 8px;
+  padding: 8px;
+  background: rgba(29, 16, 52, 0.6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(8px);
+}
+.inputbar textarea {
+  flex: 1;
+  resize: none;
+  min-height: 40px; max-height: 140px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: var(--fg-0);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px; line-height: 1.5;
+  outline: none;
+  transition: border-color 160ms ease;
+  font-family: inherit;
+}
+.inputbar textarea:focus { border-color: var(--accent); }
+
+.inputbar button {
+  align-self: flex-end;
+  height: 40px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #1a0e30;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 120ms ease, opacity 120ms ease;
+  font-size: 14px;
+}
+.inputbar button:hover:not(:disabled) { transform: translateY(-1px); }
+.inputbar button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* 响应式 */
+@media (max-width: 640px) {
+  .emotion-strip { order: 3; width: 100%; }
+  .bubble { max-width: 84%; }
+}
+
+/* ========== 调试面板（可折叠） ========== */
+.debug-toggle {
+  position: absolute; top: 8px; right: 10px; z-index: 5;
+  background: rgba(255,255,255,0.05); color: var(--fg-2);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 4px 8px; font-size: 12px; cursor: pointer;
+}
+.debug-panel {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.35);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  max-height: 240px; overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px; color: #c8b7e3;
+  line-height: 1.55;
+  white-space: pre-wrap; word-break: break-word;
+}
+.debug-panel summary { cursor: pointer; color: var(--accent); margin-bottom: 6px; }
