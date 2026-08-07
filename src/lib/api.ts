@@ -7,7 +7,8 @@ import type {
   MessageSegment,
 } from '../data/types';
 
-const API_BASE = ((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE) || 'http://localhost:8000';
+// 通过 vite dev proxy 同源转发到后端 8000，避免 CORS
+const API_BASE = ((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_BASE) || '';
 
 export interface IntentAnalysis {
   intent: string;
