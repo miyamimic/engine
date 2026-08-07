@@ -107,3 +107,47 @@ import configData from "@shared/static/config.json";
 | 图表色 | `bg-chart-1` ~ `bg-chart-5` | `--chart-1` ~ `--chart-5` |
 
 HSL 格式使用**空格分隔**：`--primary: hsl(150 60% 40%);`
+
+---
+
+## 多平台运行与部署
+
+本项目的 vite 配置基于 `@lark-apaas/coding-preset-vite-react`，在秒搭平台、Google IDX、纯本地均可运行，并可部署到任意静态托管。
+
+### 开发调试
+
+#### 秒搭平台 / Trae
+直接使用平台内置的预览与 `npm run dev` 即可，无需额外配置。
+
+#### Google IDX / Project IDX
+项目根目录已含 [.idx/dev.nix](.idx/dev.nix)，IDX 打开工作区后会自动：
+- 安装 Node.js + Python
+- `npm install` 前端依赖
+- 后台启动 FastAPI 后端（:8000）
+- 启动 vite dev server 并自动预览
+
+> spaCy 为可选依赖，未安装时 NLP 层自动降级为启发式 + LLM，不影响主流程。
+
+#### 本地
+```bash
+npm install
+npm run dev            # 前端 :8001，proxy /api → :8000
+# 另开终端启动后端
+cd backend && pip install -r requirements.txt
+python -m uvicorn app.main:app --port 8000
+```
+
+### 静态部署
+
+`npx vite build --outDir dist` 产出标准 SPA 静态产物（`dist/index.html` + `assets/`）。
+
+#### Cloudflare Pages
+- Build command：`npx vite build --outDir dist`
+- Output directory：`dist`
+- SPA fallback 由 [public/_redirects](public/_redirects) 处理（`/* /index.html 200`）
+
+#### GitHub Pages
+已配置 [.github/workflows/deploy.yml](.github/workflows/deploy.yml)，推送到 `main` 分支自动构建部署。
+- 前置：仓库 Settings → Pages → Source 选 "GitHub Actions"
+- 默认子路径 `/<repo>/`；部署到自定义根域名时将 workflow 中 `CLIENT_BASE_PATH` 改为 `/`
+- SPA fallback 通过 `404.html` 实现

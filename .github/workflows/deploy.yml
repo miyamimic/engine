@@ -1,0 +1,59 @@
+# 自动构建并部署前端到 GitHub Pages
+# 仅在 GitHub 仓库上触发，不影响秒搭平台或 Google IDX。
+#
+# 前置：仓库 Settings → Pages → Source 设为 "GitHub Actions"
+#
+# 如部署到自定义域名（根路径）而非默认的 <user>.github.io/<repo>，
+# 将下方 CLIENT_BASE_PATH 改为 "/" 即可。
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build (SPA)
+        env:
+          # GitHub Pages 默认子路径 /<repo>/，作为 vite base
+          CLIENT_BASE_PATH: /${{ github.event.repository.name }}
+        run: npx vite build --outDir dist --emptyOutDir
+
+      # GitHub Pages 无 _redirects，用 404.html 实现 SPA fallback
+      - name: SPA fallback
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
